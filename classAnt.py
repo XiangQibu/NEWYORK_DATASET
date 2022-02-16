@@ -45,18 +45,14 @@ class Ant(object):
         #print('cityyyyyyy:',self.current_city_node.getConnections())
         for i in dis_nx_graph.succ[self.current_city]:
             if self.open_table_city[i]:
-                try :
-                    weight = int((abs(city_co[i,1] - city_co[self.target, 1]) + abs(city_co[i,2] - city_co[self.target, 2])) / 10)
-                    #weight = self.current_city_node.getweight(distance_adja_graph.vertList[i.getId()])
-                    pheromone = phero_nx_graph.get_edge_data(self.current_city, i)['weight']
-                    
-                    select_citys_prob[i] = pow(pheromone, self.ALPHA) * pow(1.0/(weight+1), self.BETA)
-                    # 在城市的选择概率上，如果只与信息素有关，是否就一定程度上相当是于随机选择入手，然后会初始生成部分不太优的路径，然后根据评价指标评价后，得到不同的信息素分布。
-                    # select_citys_prob[i.getId()] = pow(pheromone, ALPHA)
-                    total_prob += select_citys_prob[i]
-                except ZeroDivisionError as e:
-                    print ('Ant ID: {ID}, current city: {current}, target city: {target}'.format(ID = self.ID, current = self.current_city, target = i.getId()))
-                    sys.exit(1)
+                weight = int((abs(city_co[i,1] - city_co[self.target, 1]) + abs(city_co[i,2] - city_co[self.target, 2])) / 10)
+                #weight = self.current_city_node.getweight(distance_adja_graph.vertList[i.getId()])
+                pheromone = phero_nx_graph.get_edge_data(self.current_city, i)['weight']
+                
+                select_citys_prob[i] = pow(pheromone, self.ALPHA) * pow(1.0/(weight+1), self.BETA)
+                # 在城市的选择概率上，如果只与信息素有关，是否就一定程度上相当是于随机选择入手，然后会初始生成部分不太优的路径，然后根据评价指标评价后，得到不同的信息素分布。
+                # select_citys_prob[i.getId()] = pow(pheromone, ALPHA)
+                total_prob += select_citys_prob[i]
         # 获取去下一个城市的概率
         """ for i in range(city_num):
             if self.open_table_city[i]:
