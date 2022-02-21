@@ -126,12 +126,12 @@ class Ant(object):
             # 移动到下一个城市
             next_city =  self.__choice_next_city(dis_nx_graph, phero_nx_graph, city_co)
             if next_city == -1:
-                return np.inf
+                return np.inf, self.path
             self.__move(next_city, dis_nx_graph)
             #print("move!")
             if next_city == self.target:
-                return self.total_distance
-        return np.inf
+                return self.total_distance, self.path
+        return np.inf, self.path
 
         # 计算路径总长度
         # self.__cal_total_distance()
