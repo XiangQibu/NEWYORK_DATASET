@@ -109,6 +109,7 @@ class Ant(object):
 
         self.path.append(next_city)
         self.open_table_city[next_city] = 0
+        # print(dis_nx_graph.get_edge_data(self.current_city, next_city)['weight'])
         self.total_distance += dis_nx_graph.get_edge_data(self.current_city, next_city)['weight']
         self.current_city = next_city
         # self.current_city_node = distance_adja_graph.vertList[self.current_city]
@@ -122,16 +123,20 @@ class Ant(object):
         self.__clean_data()
 
         # 搜素路径，遍历完所有城市为止
-        while self.move_count < self.city_num:
+        # while self.move_count < self.city_num:
+        while True:
             # 移动到下一个城市
             next_city =  self.__choice_next_city(dis_nx_graph, phero_nx_graph, city_co)
+            # print(next_city)
             if next_city == -1:
-                return np.inf, self.path
+                self.__clean_data()
+                continue
+                # return np.inf, self.path
             self.__move(next_city, dis_nx_graph)
             #print("move!")
             if next_city == self.target:
                 return self.total_distance, self.path
-        return np.inf, self.path
+        # return np.inf, self.path
 
         # 计算路径总长度
         # self.__cal_total_distance()
