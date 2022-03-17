@@ -1,9 +1,36 @@
-# -*- coding: utf-8 -*-
-import numpy as np
-import networkx as nx
+# -*- coding: UTF-8 -*-
+from pyspark import SparkContext
+from pyspark import SparkConf
+import random
+import copy
 import time
 import sys
-from classAnt import *
+import math
+import tkinter #//GUI模块
+import threading
+import pandas as pd
+from functools import reduce
+
+def SetLogger( sc ):
+    logger = sc._jvm.org.apache.log4j
+    logger.LogManager.getLogger("org"). setLevel( logger.Level.ERROR )
+    logger.LogManager.getLogger("akka").setLevel( logger.Level.ERROR )
+    logger.LogManager.getRootLogger().setLevel(logger.Level.ERROR)   
+
+def CreateSparkContext():
+    sparkConf = SparkConf()                                                       \
+                         .setAppName("map_view_nx_spark")                         \
+                         .set("spark.ui.showConsoleProgress", "false") \
+
+    sc = SparkContext(conf = sparkConf)
+    print("master="+sc.master)
+    SetLogger(sc)
+    sc.addPyFile("hdfs://master:9000/ant/classAnt.py")
+    SparkConf().set("spark.defalut.parallelism", ant_num)
+    return (sc)
+
+import numpy as np
+import networkx as nx
 
 
 def read_co():
@@ -116,43 +143,44 @@ def read_pivotedge():
                 print("item:",item)  """
     pivot_edge_list = np.array(Efield)
     return pivot_edge_list
+# from classAnt import Ant
 
-
-
-
-
-def update_pheromone_gragh(ants,target):
+def update_pheromone_gragh(ant_searched,target, bc_pheromone_nx_graph_value):
+    #path[0]为路径长度，path[1]为路径list
     # 获取每只蚂蚁在其路径上留下的信息素
-    for ant in ants:
+    for path in ant_searched:
         #如果这条路无法到达，则不应该更新信息素
-        if ant.path[-1] != target:
+        if path[1][-1] != target:
             continue
-        for i in range(1,len(ant.path)):
-            start, end = ant.path[i-1], ant.path[i]
+        k = 1 / path[0]
+        for i in range(1,len(path[1])):
+            start, end = path[1][i-1], path[1][i]
             # 在路径上的每两个相邻城市间留下信息素，与路径总距离反比
             #temp_pheromone[start][end] += Q / ant.total_distance
             # temp_vertex = pheromone_adja_graph.vertList[start]
-            temp_pheromone = pheromone_nx_graph.get_edge_data(start, end)['weight'] * (1-RHO)
+            temp_pheromone = bc_pheromone_nx_graph_value.get_edge_data(start, end)['weight'] * (1-RHO)
             # 更新所有城市之间的信息素，旧信息素衰减加上新迭代信息素
-            temp_pheromone += Q / ant.total_distance
+            temp_pheromone += Q * k
             pheromone_nx_graph.add_weighted_edges_from([(start,end,temp_pheromone)])
-
-def update_pivot_pheromone_gragh(ants,target):
+            
+def update_pivot_pheromone_gragh(ant_searched,target, bc_pivot_pheromone_nx_graph_value):
+    #path[0]为路径长度，path[1]为路径list
     # 获取每只蚂蚁在其路径上留下的信息素
-    for ant in ants:
+    for path in ant_searched:
         #如果这条路无法到达，则不应该更新信息素
-        if ant.path[-1] != target:
+        if path[1][-1] != target:
             continue
-        for i in range(1,len(ant.path)):
-            start, end = ant.path[i-1], ant.path[i]
+        k = 1 / path[0]
+        for i in range(1,len(path[1])):
+            start, end = path[1][i-1], path[1][i]
             # 在路径上的每两个相邻城市间留下信息素，与路径总距离反比
             #temp_pheromone[start][end] += Q / ant.total_distance
             # temp_vertex = pheromone_adja_graph.vertList[start]
-            temp_pheromone = pivot_pheromone_nx_graph.get_edge_data(start, end)['weight'] * (1-RHO)
+            temp_pheromone = bc_pivot_pheromone_nx_graph_value.get_edge_data(start, end)['weight'] * (1-RHO)
             # 更新所有城市之间的信息素，旧信息素衰减加上新迭代信息素
-            temp_pheromone += Q / ant.total_distance
+            temp_pheromone += Q * k
             pivot_pheromone_nx_graph.add_weighted_edges_from([(start,end,temp_pheromone)])
-
+            
 def initial_map(city_num, dis_table):
         # 初始化邻接表
     distance_nx_graph.clear()
@@ -173,100 +201,119 @@ def initial_pivot_map(pivot_edge_list):
         pivot_distance_nx_graph.add_weighted_edges_from([(pivot_edge_list[index][0],pivot_edge_list[index][1],pivot_edge_list[index][2])])
         pivot_pheromone_nx_graph.add_weighted_edges_from([(pivot_edge_list[index][0],pivot_edge_list[index][1],initial_pheromone)]) 
 
-def initial_ants(start, target, city_N):
-    global ants
-    ants = [Ant(ID,target,start,city_N,ALPHA,BETA,RHO,Q) for ID in range(ant_num)]  # 初始蚁群
+def initial_ants(sc, start, target):
+    # global ants
+    ants = [Ant(ID,target,start,city_num,ALPHA,BETA,RHO,Q) for ID in range(ant_num)]  # 初始蚁群
+    ants_RDD = sc.parallelize(ants)
+    return(ants_RDD)
 
-
-
-def search_pivot_path(start,target,city_co):
+def begin_search(ants_RDD):
+    the_iter = 1
+    best_path_distance = np.inf
+    best_path = []
+    global bc_distance_nx_graph
+    global bc_pheromone_nx_graph
+    global bc_city_co
     
-    
-    #best_ant = Ant(-1,target,start)                          # 初始最优解
-    #best_ant.total_distance = np.inf           # 初始最好的蚂蚁
-    best_distance = np.inf
-    
-    iter = 1
-
-    while True:
-        # 遍历每一只蚂蚁
+    while(1):
         tic = time.time()
-        count = 0
-        for ant in ants:
-            # 搜索一条路径
-            ant.search_path(pivot_distance_nx_graph,pivot_pheromone_nx_graph,city_co)
-            # 与当前最优蚂蚁比较
-            #print(ant.path)
-            #print(ant.total_distance)
-            if ant.total_distance < best_distance and ant.path[-1] == target:
-                # 更新最优解
-                #best_ant = copy.deepcopy(ant)
-                best_path = ant.path
-                best_distance = ant.total_distance
-                print('found a path!')
+        ants_RDD_searched = ants_RDD.map(lambda x:x.search_path(bc_distance_nx_graph.value, bc_pheromone_nx_graph.value, bc_city_co.value))
+        ants_searched = ants_RDD_searched.collect()
+        #ants_searched = ants_RDD_searched.show()
 
-        # 更新信息素
-        update_pivot_pheromone_gragh(ants,target)
-        if best_distance < np.inf:
-            toc = time.time()
-            gap = toc-tic
-            path_str = '%d' % best_path[0]
-            # 给定策略然后进行选择
-            for i in range(len(best_path) - 1):
-                path_str = path_str + '------' + '%d' % best_path[i+1]
-            print (u"迭代次数：",iter,u"最佳路径总距离：",int(best_distance),"路径为：",path_str,"搜索时长：",gap)
+        t_collect = time.time()
+        print("collect time:", t_collect - tic)
+
+        distance_list = []
+        for i in range(ant_num):
+            distance_list.append(ants_searched[i][0])
+        min_distance = min(distance_list)
+        if min_distance < best_path_distance:
+            print("found a path!")
+            print("distance:", min_distance)
+            print(ants_searched[distance_list.index(min_distance)][1])
+            best_path_distance = min_distance
+            best_path = ants_searched[distance_list.index(min_distance)][1]
+
+        t_findmin =time.time()
+
+        update_pheromone_gragh(ants_searched,target, bc_pheromone_nx_graph.value)
+        t_update = time.time()
+        print("update time:", t_update - t_findmin)
+
+        bc_pheromone_nx_graph.unpersist()
+        bc_pheromone_nx_graph = sc.broadcast(pheromone_nx_graph)
+        t_bc = time.time()
+        print("bc time:", t_bc - t_update)
+
+
+        if best_path_distance < np.inf:
+            print (u"迭代次数：",the_iter,u"最佳路径总距离：",int(best_path_distance),"路径为：",best_path)
         else:
-            print(u"迭代次数：",iter,u"无法到达！")
-        iter += 1
+            print(u"迭代次数：",the_iter,u"无法到达！")
 
-        if iter == 3:
+        toc = time.time()
+        gap = toc-tic
+        print("搜索总时长：",gap)
+
+        the_iter += 1
+        if the_iter == 2:
             break
-
-def search_path(start,target,city_co):
+            
+def begin_pivot_search(ants_RDD):
+    the_iter = 1
+    best_path_distance = np.inf
+    best_path = []
+    global bc_pivot_distance_nx_graph
+    global bc_pivot_pheromone_nx_graph
+    global bc_city_co
     
-    
-    #best_ant = Ant(-1,target,start)                          # 初始最优解
-    #best_ant.total_distance = np.inf           # 初始最好的蚂蚁
-    best_distance = np.inf
-    
-    iter = 1
-
-    while True:
-        # 遍历每一只蚂蚁
+    while(1):
         tic = time.time()
-        count = 0
-        for ant in ants:
-            # 搜索一条路径
-            ant.search_path(distance_nx_graph,pheromone_nx_graph,city_co)
-            # 与当前最优蚂蚁比较
-            #print(ant.path)
-            #print(ant.total_distance)
-            if ant.total_distance < best_distance and ant.path[-1] == target:
-                # 更新最优解
-                #best_ant = copy.deepcopy(ant)
-                best_path = ant.path
-                best_distance = ant.total_distance
-                print('found a path!')
+        ants_RDD_searched = ants_RDD.map(lambda x:x.search_path(bc_pivot_distance_nx_graph.value, bc_pivot_pheromone_nx_graph.value, bc_city_co.value))
+        ants_searched = ants_RDD_searched.collect()
+        #ants_searched = ants_RDD_searched.show()
 
-        # 更新信息素
-        update_pheromone_gragh(ants,target)
-        if best_distance < np.inf:
-            toc = time.time()
-            gap = toc-tic
-            path_str = '%d' % best_path[0]
-            # 给定策略然后进行选择
-            for i in range(len(best_path) - 1):
-                path_str = path_str + '------' + '%d' % best_path[i+1]
-            print (u"迭代次数：",iter,u"最佳路径总距离：",int(best_distance),"路径为：",path_str,"搜索时长：",gap)
+        t_collect = time.time()
+        print("collect time:", t_collect - tic)
+
+        distance_list = []
+        for i in range(ant_num):
+            distance_list.append(ants_searched[i][0])
+        min_distance = min(distance_list)
+        if min_distance < best_path_distance:
+            print("found a path!")
+            print("distance:", min_distance)
+            print(ants_searched[distance_list.index(min_distance)][1])
+            best_path_distance = min_distance
+            best_path = ants_searched[distance_list.index(min_distance)][1]
+
+        t_findmin =time.time()
+
+        update_pivot_pheromone_gragh(ants_searched,target, bc_pivot_pheromone_nx_graph.value)
+        t_update = time.time()
+        print("update time:", t_update - t_findmin)
+
+        bc_pivot_pheromone_nx_graph.unpersist()
+        bc_pivot_pheromone_nx_graph = sc.broadcast(pivot_pheromone_nx_graph)
+        t_bc = time.time()
+        print("bc time:", t_bc - t_update)
+
+
+        if best_path_distance < np.inf:
+            print (u"迭代次数：",the_iter,u"最佳路径总距离：",int(best_path_distance),"路径为：",best_path)
         else:
-            print(u"迭代次数：",iter,u"无法到达！")
-        iter += 1
-        if iter == 3:
+            print(u"迭代次数：",the_iter,u"无法到达！")
+
+        toc = time.time()
+        gap = toc-tic
+        print("搜索总时长：",gap)
+
+        the_iter += 1
+        if the_iter == 2:
             break
-
-
-
-
+            
+from classAnt import *
 # 参数
 '''
 ALPHA:信息启发因子，值越大，则蚂蚁选择之前走过的路径可能性就越大
@@ -279,7 +326,6 @@ BETA:Beta值越大，蚁群越就容易选择局部较短路径，这时算法�
 (city_num, ant_num) = (264346, 30)
 distance_nx_graph = nx.DiGraph()
 pheromone_nx_graph = nx.DiGraph()
-
 # 分层下的新图
 # 分层下进行的新的蚁群算法，其实本质上就是换了一下图
 (pivot_city_num, ant_num) = (1291,30)
@@ -287,34 +333,53 @@ pivot_distance_nx_graph = nx.DiGraph()
 pivot_pheromone_nx_graph = nx.DiGraph()
 
 
-
 if __name__ == '__main__':
     # 设置起点和终点
     start = int(sys.argv[1])
     target = int(sys.argv[2])
-    # start = 2961
-    # target = 145210
-
+    #start = 2000
+    #target = 145210
+    
+    sc=CreateSparkContext()
+    print("开始读取数据。。。")
     city_co = read_co()
     dis_table = read_gr()
     subgraph_list = read_subgraph()
     pivot_list = read_pivot()
     pivot_edge_list = read_pivotedge()
-
+    
+    
     start_pivot = subgraph_list[start, 1]
     target_pivot = subgraph_list[target, 1]
     print("start_pivot:", start_pivot,"start_pivot:", target_pivot)
-
-
+    print("初始化地图。。。")
     initial_map(city_num, dis_table)
     #设置广播变量
     initial_pivot_map(pivot_edge_list)
-    # 起点到枢纽点1
-    initial_ants(start,start_pivot,city_num)
-    search_path(start, start_pivot, city_co)
-    # 枢纽点1到枢纽点2
-    initial_ants(start_pivot,target_pivot,city_num)
-    search_pivot_path(start_pivot, target_pivot, city_co)
-    # 枢纽点2到终点
-    initial_ants(target_pivot,target,city_num)
-    search_path(target_pivot, target, city_co)
+    print("广播参数。。。")
+    global bc_distance_nx_graph
+    global bc_pheromone_nx_graph
+    global bc_city_co
+    bc_distance_nx_graph = sc.broadcast(distance_nx_graph)
+    bc_pheromone_nx_graph = sc.broadcast(pheromone_nx_graph)
+    bc_city_co = sc.broadcast(city_co)
+    print("初始化start to p1。。。")
+    ants_start_p1_RDD = initial_ants(sc, start,start_pivot)
+    print("搜索start to p1。。。")
+    begin_search(ants_start_p1_RDD)
+    print("初始化p2 to target。。。")
+    ants_p2_target_RDD = initial_ants(sc, target_pivot,target)
+    print("搜索p2 to target。。。")
+    begin_search(ants_p2_target_RDD)
+    
+    global bc_pivot_distance_nx_graph
+    global bc_pivot_pheromone_nx_graph
+    bc_pivot_distance_nx_graph = sc.broadcast(pivot_distance_nx_graph)
+    bc_pivot_pheromone_nx_graph=sc.broadcast(pivot_pheromone_nx_graph)
+    print("初始化p1 to p2。。。")
+    ants_p1_p2_RDD =  initial_ants(sc, start_pivot,target_pivot)
+    print("搜索p1 to p2。。。")
+    begin_pivot_search(ants_p1_p2_RDD)
+    # 开始搜索
+    
+

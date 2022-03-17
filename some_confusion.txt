@@ -240,5 +240,14 @@ collect需要5s左右，而update信息素图需要3s左右，每一次update重
 
 3.13
 准备把notebook格式的代码整理为脚本模式，然后可以更方便地进行测试。
+把一般的蚁群算法整理为脚本模式，把分层优化下的蚁群算法整理为脚本模式。
 
+3.14
+把spark下的蚁群算法整理为脚本模式。
 
+3.15
+spark-submit --master spark://master:7077 --deploy-mode client --executor-memory 1024m --deploy-mode client --total-executor-cores 3 map_view_nx_spark.py
+
+3.16
+考虑能不能找到一些样例，然后说明我的方法比传统的djsktra之类的更好。
+找到一个样例，2961——145210，分层优化下比djsktra更好，速度更快。有的时候也并不需要最优解。
