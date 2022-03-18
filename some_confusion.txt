@@ -245,9 +245,29 @@ collect需要5s左右，而update信息素图需要3s左右，每一次update重
 3.14
 把spark下的蚁群算法整理为脚本模式。
 
+
 3.15
 spark-submit --master spark://master:7077 --deploy-mode client --executor-memory 1024m --deploy-mode client --total-executor-cores 3 map_view_nx_spark.py
 
 3.16
 考虑能不能找到一些样例，然后说明我的方法比传统的djsktra之类的更好。
 找到一个样例，2961——145210，分层优化下比djsktra更好，速度更快。有的时候也并不需要最优解。
+
+3.17
+有的时候开代理还会影响github的上传。
+
+2000-224103体现spark效果
+20600-224103体现分层效果
+54963-224103体现分层效果
+75500 23789体现分层效果
+157534 157800（pivot）体现spark效果，但是有点慢就是说
+297 1000体现spark效果
+174786 175455(pivot)体现spark效果
+187800 187935(pivot)体现spark效果。
+起终点交换，搜索难度会不同。
+12014 12056(pivot)体现spark效果
+247700 247380（pivot）体现spark效果
+227881（pivot） 227941体现spark效果
+1456 2000体现spark效果（有点慢）
+6698 7510体现spark效果（有点慢）
+146950 145699 体现spark效果

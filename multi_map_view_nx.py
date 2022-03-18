@@ -239,6 +239,8 @@ def search_path(start,target,city_co):
             # 搜索一条路径
             ant.search_path(distance_nx_graph,pheromone_nx_graph,city_co)
             # 与当前最优蚂蚁比较
+            count += 1
+            print("ant:", count)
             #print(ant.path)
             #print(ant.total_distance)
             if ant.total_distance < best_distance and ant.path[-1] == target:

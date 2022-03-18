@@ -54,7 +54,7 @@ def read_gr():
 
 
 
-from classAnt import *
+from classAnt_standard import *
 
 def update_pheromone_gragh(ants,target):
 
