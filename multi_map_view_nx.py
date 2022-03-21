@@ -192,12 +192,14 @@ def search_pivot_path(start,target,city_co):
         # 遍历每一只蚂蚁
         tic = time.time()
         count = 0
+        distance_list = []
         for ant in ants:
             # 搜索一条路径
             ant.search_path(pivot_distance_nx_graph,pivot_pheromone_nx_graph,city_co)
             # 与当前最优蚂蚁比较
             #print(ant.path)
             #print(ant.total_distance)
+            distance_list.append(ant.total_distance)
             if ant.total_distance < best_distance and ant.path[-1] == target:
                 # 更新最优解
                 #best_ant = copy.deepcopy(ant)
@@ -214,13 +216,13 @@ def search_pivot_path(start,target,city_co):
             # 给定策略然后进行选择
             for i in range(len(best_path) - 1):
                 path_str = path_str + '------' + '%d' % best_path[i+1]
-            print (u"迭代次数：",iter,u"最佳路径总距离：",int(best_distance),"路径为：",path_str,"搜索时长：",gap)
+            print (u"迭代次数：",iter,u"最佳路径总距离：",int(best_distance),u"平均路径总距离：",np.mean(distance_list),"路径为：",path_str,"搜索时长：",gap)
         else:
             print(u"迭代次数：",iter,u"无法到达！")
         iter += 1
 
-        if iter == 3:
-            break
+        if iter == 2:
+            return int(best_distance), np.mean(distance_list), gap
 
 def search_path(start,target,city_co):
     
@@ -235,6 +237,7 @@ def search_path(start,target,city_co):
         # 遍历每一只蚂蚁
         tic = time.time()
         count = 0
+        distance_list = []
         for ant in ants:
             # 搜索一条路径
             ant.search_path(distance_nx_graph,pheromone_nx_graph,city_co)
@@ -243,6 +246,7 @@ def search_path(start,target,city_co):
             print("ant:", count)
             #print(ant.path)
             #print(ant.total_distance)
+            distance_list.append(ant.total_distance)
             if ant.total_distance < best_distance and ant.path[-1] == target:
                 # 更新最优解
                 #best_ant = copy.deepcopy(ant)
@@ -259,12 +263,12 @@ def search_path(start,target,city_co):
             # 给定策略然后进行选择
             for i in range(len(best_path) - 1):
                 path_str = path_str + '------' + '%d' % best_path[i+1]
-            print (u"迭代次数：",iter,u"最佳路径总距离：",int(best_distance),"路径为：",path_str,"搜索时长：",gap)
+            print (u"迭代次数：",iter,u"最佳路径总距离：",int(best_distance),u"平均路径总距离：",np.mean(distance_list),"路径为：",path_str,"搜索时长：",gap)
         else:
             print(u"迭代次数：",iter,u"无法到达！")
         iter += 1
-        if iter == 3:
-            break
+        if iter == 2:
+            return int(best_distance), np.mean(distance_list), gap
 
 
 
@@ -313,10 +317,16 @@ if __name__ == '__main__':
     initial_pivot_map(pivot_edge_list)
     # 起点到枢纽点1
     initial_ants(start,start_pivot,city_num)
-    search_path(start, start_pivot, city_co)
+    D_s1, meanD_s1, gap_s1 = search_path(start, start_pivot, city_co)
     # 枢纽点1到枢纽点2
     initial_ants(start_pivot,target_pivot,city_num)
-    search_pivot_path(start_pivot, target_pivot, city_co)
+    D_12, meanD_12, gap_12 = search_pivot_path(start_pivot, target_pivot, city_co)
     # 枢纽点2到终点
     initial_ants(target_pivot,target,city_num)
-    search_path(target_pivot, target, city_co)
+    D_2t, meanD_2t, gap_2t = search_path(target_pivot, target, city_co)
+
+    print("best_distance:", D_s1 + D_12 + D_2t)
+    print("mean_distance:", meanD_s1 + meanD_12 + meanD_2t)
+    print("time cost:", gap_s1 + gap_12 + gap_2t)
+
+

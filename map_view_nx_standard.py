@@ -100,6 +100,7 @@ def search_path(start,target,city_co):
         # 遍历每一只蚂蚁
         tic = time.time()
         count = 0
+        distance_list = []
         for ant in ants:
             # 搜索一条路径
             print("ant:", count)
@@ -108,6 +109,7 @@ def search_path(start,target,city_co):
             #print(ant.path)
             #print(ant.total_distance)
             count += 1
+            distance_list.append(ant.total_distance)
             if ant.total_distance < best_distance and ant.path[-1] == target:
                 # 更新最优解
                 #best_ant = copy.deepcopy(ant)
@@ -139,11 +141,11 @@ def search_path(start,target,city_co):
                     elif the_choice == 0:
                         path_str = path_str + '--road--'
                     path_str = path_str + '%d' % best_path[i+1] """
-            print (u"迭代次数：",iter,u"最佳路径总距离：",int(best_distance),"路径为：",path_str,"搜索时长：",gap)
+            print (u"迭代次数：",iter,u"最佳路径总距离：",int(best_distance),u"平均路径总距离：",np.mean(distance_list),"路径为：",path_str,"搜索时长：",gap)
         else:
             print(u"迭代次数：",iter,u"无法到达！")
         iter += 1
-        if iter > 2:
+        if iter > 1:
             break
 
 # 参数
